@@ -29,3 +29,10 @@ sudo ncu \
   --launch-count 1 \
   --set full \
   $(dirname $0)/../build/nsight-demo
+
+# Check occupancy
+sudo ncu \
+  -f -o $(dirname $0)/../nsys-reports/occupancy_check \
+  --set full \
+  --metrics sm__maximum_warps_per_active_cycle_pct,sm__warps_active.avg.pct_of_peak_sustained_active \
+  $(dirname $0)/../build/nsight-demo
