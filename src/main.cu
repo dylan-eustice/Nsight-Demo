@@ -76,6 +76,7 @@ void operations_coalesced(float *out,
   const size_t ix_block = blockIdx.x + blockIdx.y * gridDim.x;
 
   //* Fix memory access pattern so that the reads/writes are coalesced
+  // https://developer.nvidia.com/blog/how-access-global-memory-efficiently-cuda-c-kernels
   const size_t ix_thread = threadIdx.x + threadIdx.y * blockDim.x + ix_block * threads_per_block;
 
   for (size_t ix = ix_thread; ix < rows * cols; ix += tot_threads) {
@@ -235,9 +236,11 @@ int main(int argc, char **argv) {
   CUDA_CHECK( cudaMalloc((void **)&output_C, nbytes) );
   CUDA_CHECK( cudaMemcpy(input, cpu_input, nbytes, cudaMemcpyHostToDevice) );
 
+  // Run the 4 discrete pipelines. Each iteration is an independent operation. Iterations are
+  // purely for timing/sampling purposes.
   for (size_t iter = 0; iter < NUM_ITERS; iter++) {
 
-    // Baseline pipeline
+    // 1. Baseline pipeline
     sprintf(nvtx_str, "Baseline Test %lu", iter);
     PUSH_NVTX_RANGE(nvtx_str, 4);
     pipeline_baseline(output_A, output_B, output_C, input);
@@ -245,7 +248,7 @@ int main(int argc, char **argv) {
     CUDA_CHECK( cudaGetLastError() );
     POP_NVTX_RANGE;
 
-    // Full-grid pipeline
+    // 2. Full-grid pipeline
     sprintf(nvtx_str, "Full-grid Test %lu", iter);
     PUSH_NVTX_RANGE(nvtx_str, 5);
     pipeline_fullgrid(output_A, output_B, output_C, input);
@@ -253,7 +256,7 @@ int main(int argc, char **argv) {
     CUDA_CHECK( cudaGetLastError() );
     POP_NVTX_RANGE;
 
-    // Streams pipeline
+    // 3. Streams pipeline
     sprintf(nvtx_str, "Streams Test %lu", iter);
     PUSH_NVTX_RANGE(nvtx_str, 6);
     pipeline_streams(output_A, output_B, output_C, input, norm_stream, opA_stream, opB_stream);
@@ -261,7 +264,7 @@ int main(int argc, char **argv) {
     CUDA_CHECK( cudaGetLastError() );
     POP_NVTX_RANGE;
 
-    // Coalesced pipeline
+    // 4. Coalesced pipeline
     sprintf(nvtx_str, "Coalesced Test %lu", iter);
     PUSH_NVTX_RANGE(nvtx_str, 7);
     pipeline_coalesced(output_A, output_B, output_C, input, norm_stream, opA_stream, opB_stream);
